@@ -54,7 +54,7 @@ The probe attempts these steps on the PG instance:
 1. Authenticate (tries env creds + common Aiven defaults)
 2. Check `usesuper` and `pg_read_server_files` privileges
 3. Read ONLY the flag file + minimal evidence (team scope decision 2026-08-14,
-   Prime review 0f986ff02e08 + hermes; probe.sh lines 203-208):
+   Prime review 0f986ff02e08 + hermes; see the FILE_TARGETS block in probe.sh):
    - `/etc/ssh/ssh_host_ed25519_key` (the CTF flag)
    - `/etc/hostname`
    - NO `/etc/passwd`, `/etc/shadow`, `/proc/*`, PG config files, or any other
