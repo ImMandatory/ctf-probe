@@ -53,12 +53,23 @@ The probe attempts these steps on the PG instance:
 
 1. Authenticate (tries env creds + common Aiven defaults)
 2. Check `usesuper` and `pg_read_server_files` privileges
-3. Read sensitive files:
-   - `/etc/passwd`, `/etc/shadow`, `/etc/hostname`, `/etc/os-release`
-   - PG config: `pg_hba.conf`, `postgresql.conf`, `pg_ident.conf`
-   - Container intel: `/proc/self/cgroup`, `/proc/1/environ`
-4. If superuser: attempt `COPY TO PROGRAM` (RCE vector)
+3. Read ONLY the flag file + minimal evidence (team scope decision 2026-08-14,
+   Prime review 0f986ff02e08 + hermes; probe.sh lines 203-208):
+   - `/etc/ssh/ssh_host_ed25519_key` (the CTF flag)
+   - `/etc/hostname`
+   - NO `/etc/passwd`, `/etc/shadow`, `/proc/*`, PG config files, or any other
+     host-level exfil — out of scope
+4. If superuser: attempt `COPY TO PROGRAM` (RCE test, target-scoped only)
 5. Enumerate schemas, tables, extensions
+
+## Scope
+
+- Single target only (sandbox FQDN/IP from the CTF program).
+- No Aiven-internal ranges, no other `*.aivencloud.com` hosts, no control-plane
+  probing, no cloud metadata (169.254.169.254 = operator-gated).
+- Exfil endpoint = team-controlled listener; only flag material + probe evidence.
+- Deployment requires: (a) operator go/no-go on the Runtime question
+  (team/questions.md), (b) Prime's review of the artifact diff.
 
 ## Ports
 

